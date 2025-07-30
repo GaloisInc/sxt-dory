@@ -300,3 +300,65 @@ where
 pub fn create_transcript(domain: &[u8]) -> ToyTranscript {
     ToyTranscript::new(domain)
 }
+
+pub struct StreamingDory<'a, E: Pairing> {
+    sigma: usize,
+    setup: &'a ProverSetup<E>,
+    current_row: Vec<<E::G1 as Group>::Scalar>,
+    running_product: E::GT,
+    offset: usize,
+}
+
+impl <'a, E: Pairing> StreamingDory <'a, E> {
+    // pub fn new() -> Self {
+    //     Self {
+    //         current_row: Vec::new(),
+    //         running_product: E::GT::identity(),//AZ: Make sure this is multiplicative identiy
+    //     }
+    // }
+
+    /// Initializes the StreamingDory instance with the given sigma and prover setup.
+    ///
+    /// # Parameters
+    /// - `sigma`: log₂(matrix_width)
+    /// - `setup`: Reference to the prover setup
+    ///
+    /// # Returns
+    /// A new StreamingDory instance with the specified configuration.
+    pub fn initialize(sigma: usize, setup: &'a ProverSetup<E>) -> Self {
+        Self {
+            sigma,
+            setup,
+            current_row: Vec::with_capacity(sigma), // AZ: check if sigma is the best value to use
+            running_product: E::GT::identity(),//AZ: Make sure this is multiplicative identiy
+            offset: 0,
+        }
+    }
+
+    /// Process
+    pub fn process(self, eval: <E::G1 as Group>::Scalar) -> Self {
+        let num_columns = 1 << self.sigma;
+
+        let rows_offset = self.offset / num_columns; // Row start position
+
+        // TODO(moodlezoup): handle offset
+        let row_len = num_columns;
+        let row_commitments = poly.commit_rows::<M1>(&self.setup.g1_vec()[..row_len], row_len);
+        
+        self.current_row.push(row_commitments);
+        // self.running_product = 
+        self
+    }
+    
+    /// Batch Process
+    pub fn process_batch(self, eval: &[<E::G1 as Group>::Scalar]) -> Self {
+        todo!("process_batch not implemented yet")
+    }
+
+    /// Finalize
+    pub fn finalize(self) -> E::GT {
+        self.running_product
+    }
+
+
+}
