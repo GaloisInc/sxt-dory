@@ -3,7 +3,10 @@ use crate::arithmetic::{Field, Group, MultiScalarMul, Pairing};
 use crate::poly::Polynomial;
 use crate::setup::ProverSetup;
 
-pub(crate) fn commit_row<G1: Group, M1: MultiScalarMul<G1>>(row_coeffs: &[G1::Scalar], g1_generators: &[G1]) -> G1 {
+pub(crate) fn commit_row<G1: Group, M1: MultiScalarMul<G1>>(
+    row_coeffs: &[G1::Scalar],
+    g1_generators: &[G1],
+) -> G1 {
     // let row_start = row * row_len;
     // let row_end = (row_start + row_len).min(len);
     // let actual_row_len = row_end - row_start;
