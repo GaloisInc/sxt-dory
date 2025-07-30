@@ -302,14 +302,14 @@ pub fn create_transcript(domain: &[u8]) -> ToyTranscript {
 }
 
 pub struct StreamingDory<'a, E: Pairing> {
-    sigma: usize,
+    row_len: usize,
     setup: &'a ProverSetup<E>,
     current_row: Vec<<E::G1 as Group>::Scalar>,
     running_product: E::GT,
-    offset: usize,
+    row_offset: usize,
 }
 
-impl <'a, E: Pairing> StreamingDory <'a, E> {
+impl<'a, E: Pairing> StreamingDory<'a, E> {
     // pub fn new() -> Self {
     //     Self {
     //         current_row: Vec::new(),
@@ -326,39 +326,53 @@ impl <'a, E: Pairing> StreamingDory <'a, E> {
     /// # Returns
     /// A new StreamingDory instance with the specified configuration.
     pub fn initialize(sigma: usize, setup: &'a ProverSetup<E>) -> Self {
+        let row_len = 1 << sigma;
         Self {
-            sigma,
+            row_len,
             setup,
-            current_row: Vec::with_capacity(sigma), // AZ: check if sigma is the best value to use
-            running_product: E::GT::identity(),//AZ: Make sure this is multiplicative identiy
-            offset: 0,
+            current_row: Vec::with_capacity(row_len), // AZ: check if sigma is the best value to use
+            running_product: E::GT::identity(),       //AZ: Make sure this is multiplicative identiy
+            // offset: 0,
+            row_offset: 0,
         }
     }
 
     /// Process
-    pub fn process(self, eval: <E::G1 as Group>::Scalar) -> Self {
-        let num_columns = 1 << self.sigma;
+    pub fn process<M1: MultiScalarMul<E::G1>>(mut self, eval: <E::G1 as Group>::Scalar) -> Self {
+        self.current_row.push(eval);
 
-        let rows_offset = self.offset / num_columns; // Row start position
+        if self.current_row.len() == self.row_len {
+            let commitment = commit_row::<E::G1, M1>(&self.current_row, &self.setup.g1_vec());
 
-        // TODO(moodlezoup): handle offset
-        let row_len = num_columns;
-        let row_commitments = poly.commit_rows::<M1>(&self.setup.g1_vec()[..row_len], row_len);
-        
-        self.current_row.push(row_commitments);
-        // self.running_product = 
+            // calculate the running product
+            // --- TIER 2: Multi-pairing to combine row commitments ---
+
+            // let g2_elements = &prover_setup.g2_vec()[rows_offset..rows_offset + row_commitments.len()];
+            // E::multi_pair(&row_commitments, g2_elements) // Final commitment in GT
+            let g2_element = &self.setup.g2_vec()[self.row_offset];
+            // fn pair(p: &Self::G1, q: &Self::G2) -> Self::GT;
+            let row_gt = E::pair(&commitment, g2_element);
+
+            self.running_product = self.running_product.add(&row_gt);
+            self.row_offset += 1;
+            self.current_row.clear();
+        }
         self
     }
-    
+
     /// Batch Process
     pub fn process_batch(self, eval: &[<E::G1 as Group>::Scalar]) -> Self {
         todo!("process_batch not implemented yet")
     }
 
     /// Finalize
-    pub fn finalize(self) -> E::GT {
+    pub fn finalize<M1: MultiScalarMul<E::G1>>(mut self) -> E::GT {
+        if !self.current_row.is_empty() {
+            let commitment = commit_row::<E::G1, M1>(&self.current_row, &self.setup.g1_vec());
+            let g2_element = &self.setup.g2_vec()[self.row_offset];
+            let row_gt = E::pair(&commitment, g2_element);
+            self.running_product = self.running_product.add(&row_gt);
+        }
         self.running_product
     }
-
-
 }

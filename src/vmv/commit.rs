@@ -3,6 +3,15 @@ use crate::arithmetic::{Field, Group, MultiScalarMul, Pairing};
 use crate::poly::Polynomial;
 use crate::setup::ProverSetup;
 
+pub(crate) fn commit_row<G1: Group, M1: MultiScalarMul<G1>>(row_coeffs: &[G1::Scalar], g1_generators: &[G1]) -> G1 {
+    // let row_start = row * row_len;
+    // let row_end = (row_start + row_len).min(len);
+    // let actual_row_len = row_end - row_start;
+
+    // if actual_row_len > 0 {
+    M1::msm(&g1_generators[..row_coeffs.len()], row_coeffs)
+}
+
 /// Dory's 2-tier homomorphic commitment to multilinear polynomial arranged as matrix
 /// Tier 1: Row commitments in G1, Tier 2: Multi-pairing to GT
 /// See page 12 of the paper.
