@@ -294,13 +294,13 @@ pub fn create_transcript(domain: &[u8]) -> ToyTranscript {
     ToyTranscript::new(domain)
 }
 
-
 pub struct StreamingDory<'a, E: Pairing> {
     row_len: usize,
     setup: &'a ProverSetup<E>,
     current_row: Vec<<E::G1 as Group>::Scalar>,
-    running_product: E::GT,
-    row_offset: usize,
+    // running_product: E::GT,
+    // row_offset: usize,
+    row_commitments: Vec<E::G1>,
 }
 
 impl<'a, E: Pairing> StreamingDory<'a, E> {
@@ -321,13 +321,15 @@ impl<'a, E: Pairing> StreamingDory<'a, E> {
     /// A new StreamingDory instance with the specified configuration.
     pub fn initialize(sigma: usize, setup: &'a ProverSetup<E>) -> Self {
         let row_len = 1 << sigma;
+        let num_rows = 1 << sigma; // Assuming it is a square matrix
         Self {
             row_len,
             setup,
             current_row: Vec::with_capacity(row_len), // AZ: check if sigma is the best value to use
-            running_product: E::GT::identity(),       //AZ: Make sure this is multiplicative identiy
+            // running_product: E::GT::identity(),       //AZ: Make sure this is multiplicative identiy
             // offset: 0,
-            row_offset: 0,
+            // row_offset: 0,
+            row_commitments: Vec::with_capacity(num_rows),
         }
     }
 
@@ -343,12 +345,13 @@ impl<'a, E: Pairing> StreamingDory<'a, E> {
 
             // let g2_elements = &prover_setup.g2_vec()[rows_offset..rows_offset + row_commitments.len()];
             // E::multi_pair(&row_commitments, g2_elements) // Final commitment in GT
-            let g2_element = &self.setup.g2_vec()[self.row_offset];
+            // let g2_element = &self.setup.g2_vec()[self.row_offset];
             // fn pair(p: &Self::G1, q: &Self::G2) -> Self::GT;
-            let row_gt = E::pair(&commitment, g2_element);
+            // let row_gt = E::pair(&commitment, g2_element);
 
-            self.running_product = self.running_product.add(&row_gt);
-            self.row_offset += 1;
+            // self.running_product = self.running_product.add(&row_gt);
+            self.row_commitments.push(commitment);
+            // self.row_offset += 1;
             self.current_row.clear();
         }
         self
@@ -360,13 +363,19 @@ impl<'a, E: Pairing> StreamingDory<'a, E> {
     }
 
     /// Finalize
-    pub fn finalize<M1: MultiScalarMul<E::G1>>(mut self) -> E::GT {
+    pub fn finalize<M1: MultiScalarMul<E::G1>>(mut self) -> (E::GT, Vec<E::G1>) {
         if !self.current_row.is_empty() {
             let commitment = commit_row::<E::G1, M1>(&self.current_row, &self.setup.g1_vec());
-            let g2_element = &self.setup.g2_vec()[self.row_offset];
-            let row_gt = E::pair(&commitment, g2_element);
-            self.running_product = self.running_product.add(&row_gt);
+            // let g2_element = &self.setup.g2_vec()[self.row_offset];
+            // let row_gt = E::pair(&commitment, g2_element);
+
+            // self.running_product = self.running_product.add(&row_gt);
+            self.row_commitments.push(commitment);
         }
-        self.running_product
+        // self.running_product
+        (
+            E::multi_pair(&self.row_commitments, &self.setup.g2_vec()),
+            self.row_commitments,
+        )
     }
 }
