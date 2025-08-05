@@ -374,7 +374,7 @@ impl<'a, E: Pairing> StreamingDory<'a, E> {
         }
         // self.running_product
         (
-            E::multi_pair(&self.row_commitments, &self.setup.g2_vec()),
+            E::multi_pair(&self.row_commitments, &self.setup.g2_vec()[..self.row_commitments.len()]),//rows_offset..rows_offset + row_commitments.len()
             self.row_commitments,
         )
     }
